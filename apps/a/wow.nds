@@ -1,0 +1,1256 @@
+#include <nds.h>
+#include <fat.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include "dswifi9.h"
+
+#define BUFFER_SIZE 2048
+
+// Replace this with your GitHub raw file URL
+#define INDEX_URL "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/index.txt"
+#define FILE_BASE "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/files/"
+
+void pauseForA() {
+    printf("\nPress A to continue...\n");
+    while (!(keysDown() & KEY_A)) scanKeys();
+}
+
+bool httpDownload(const char *url, const char *savePath) {
+    char host[128], path[256];
+    int port = 80;
+
+    if (sscanf(url, "http://%127[^/]%255[^\n]", host, path) != 2 &&
+        sscanf(url, "https://%127[^/]%255[^\n]", host, path) != 2) {
+        printf("Bad URL format!\n");
+        return false;
+    }
+
+    struct hostent *he = gethostbyname(host);
+    if (!he) {
+        printf("DNS fail: %s\n", host);
+        return false;
+    }
+
+    struct sockaddr_in server;
+    server.sin_family = AF_INET;
+    server.sin_port = htons(port);
+    server.sin_addr = *(struct in_addr *)he->h_addr;
+
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
+        printf("Connect failed!\n");
+        closesocket(sock);
+        return false;
+    }
+
+    char request[512];
+    snprintf(request, sizeof(request),
+             "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n", path, host);
+    send(sock, request, strlen(request), 0);
+
+    FILE *out = fopen(savePath, "wb");
+    if (!out) {
+        printf("Cannot open %s\n", savePath);
+        closesocket(sock);
+        return false;
+    }
+
+    char buf[BUFFER_SIZE];
+    bool headerDone = false;
+    int n;
+    while ((n = recv(sock, buf, sizeof(buf), 0)) > 0) {
+        char *data = buf;
+        int len = n;
+        if (!headerDone) {
+            char *headerEnd = strstr(buf, "\r\n\r\n");
+            if (headerEnd) {
+                int headerLen = headerEnd + 4 - buf;
+                data += headerLen;
+                len -= headerLen;
+                headerDone = true;
+            } else {
+                continue;
+            }
+        }
+        fwrite(data, 1, len, out);
+    }
+
+    fclose(out);
+    closesocket(sock);
+    return true;
+}
+
+int main(void) {
+    consoleDemoInit();
+    printf("=== DS GitHub Shop ===\n\n");
+
+    if (!fatInitDefault()) {
+        printf("SD card not found!\n");
+        while (1);
+    }
+
+    if (!Wifi_InitDefault(false)) {
+        printf("WiFi init failed!\n");
+        while (1);
+    }
+
+    Wifi_AutoConnect();
+    printf("Connecting...\n");
+    int t = 0;
+    while (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED && t < 100) {
+        swiWaitForVBlank();
+        t++;
+    }
+    if (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED) {
+        printf("WiFi connect failed.\n");
+        while (1);
+    }
+    printf("Connected!\n\n");
+
+    // Fetch index.txt from GitHub
+    printf("Fetching list...\n");
+    httpDownload(INDEX_URL, "index.txt");
+
+    FILE *f = fopen("index.txt", "r");
+    if (!f) {
+        printf("Failed to open index.txt\n");
+        while (1);
+    }
+
+    char files[50][64];
+    int count = 0;
+    while (fgets(files[count], sizeof(files[count]), f) && count < 50) {
+        files[count][strcspn(files[count], "\r\n")] = 0;
+        printf("%d. %s\n", count + 1, files[count]);
+        count++;
+    }
+    fclose(f);
+
+    if (count == 0) {
+        printf("No entries found.\n");
+        while (1);
+    }
+
+    printf("\nSelect number: ");
+    int choice;
+    scanf("%d", &choice);
+    if (choice < 1 || choice > count) {
+        printf("Invalid selection.\n");
+        while (1);
+    }
+
+    char url[512], savepath[128];
+    snprintf(url, sizeof(url), "%s%s", FILE_BASE, files[choice - 1]);
+    snprintf(savepath, sizeof(savepath), "/downloads/%s", files[choice - 1]);
+
+    printf("\nDownloading %s...\n", files[choice - 1]);
+    if (httpDownload(url, savepath))
+        printf("Saved to %s\n", savepath);
+    else
+        printf("Download failed.\n");
+
+    pauseForA();
+    return 0;
+}
+#include <nds.h>
+#include <fat.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include "dswifi9.h"
+
+#define BUFFER_SIZE 2048
+
+// Replace this with your GitHub raw file URL
+#define INDEX_URL "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/index.txt"
+#define FILE_BASE "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/files/"
+
+void pauseForA() {
+    printf("\nPress A to continue...\n");
+    while (!(keysDown() & KEY_A)) scanKeys();
+}
+
+bool httpDownload(const char *url, const char *savePath) {
+    char host[128], path[256];
+    int port = 80;
+
+    if (sscanf(url, "http://%127[^/]%255[^\n]", host, path) != 2 &&
+        sscanf(url, "https://%127[^/]%255[^\n]", host, path) != 2) {
+        printf("Bad URL format!\n");
+        return false;
+    }
+
+    struct hostent *he = gethostbyname(host);
+    if (!he) {
+        printf("DNS fail: %s\n", host);
+        return false;
+    }
+
+    struct sockaddr_in server;
+    server.sin_family = AF_INET;
+    server.sin_port = htons(port);
+    server.sin_addr = *(struct in_addr *)he->h_addr;
+
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
+        printf("Connect failed!\n");
+        closesocket(sock);
+        return false;
+    }
+
+    char request[512];
+    snprintf(request, sizeof(request),
+             "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n", path, host);
+    send(sock, request, strlen(request), 0);
+
+    FILE *out = fopen(savePath, "wb");
+    if (!out) {
+        printf("Cannot open %s\n", savePath);
+        closesocket(sock);
+        return false;
+    }
+
+    char buf[BUFFER_SIZE];
+    bool headerDone = false;
+    int n;
+    while ((n = recv(sock, buf, sizeof(buf), 0)) > 0) {
+        char *data = buf;
+        int len = n;
+        if (!headerDone) {
+            char *headerEnd = strstr(buf, "\r\n\r\n");
+            if (headerEnd) {
+                int headerLen = headerEnd + 4 - buf;
+                data += headerLen;
+                len -= headerLen;
+                headerDone = true;
+            } else {
+                continue;
+            }
+        }
+        fwrite(data, 1, len, out);
+    }
+
+    fclose(out);
+    closesocket(sock);
+    return true;
+}
+
+int main(void) {
+    consoleDemoInit();
+    printf("=== DS GitHub Shop ===\n\n");
+
+    if (!fatInitDefault()) {
+        printf("SD card not found!\n");
+        while (1);
+    }
+
+    if (!Wifi_InitDefault(false)) {
+        printf("WiFi init failed!\n");
+        while (1);
+    }
+
+    Wifi_AutoConnect();
+    printf("Connecting...\n");
+    int t = 0;
+    while (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED && t < 100) {
+        swiWaitForVBlank();
+        t++;
+    }
+    if (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED) {
+        printf("WiFi connect failed.\n");
+        while (1);
+    }
+    printf("Connected!\n\n");
+
+    // Fetch index.txt from GitHub
+    printf("Fetching list...\n");
+    httpDownload(INDEX_URL, "index.txt");
+
+    FILE *f = fopen("index.txt", "r");
+    if (!f) {
+        printf("Failed to open index.txt\n");
+        while (1);
+    }
+
+    char files[50][64];
+    int count = 0;
+    while (fgets(files[count], sizeof(files[count]), f) && count < 50) {
+        files[count][strcspn(files[count], "\r\n")] = 0;
+        printf("%d. %s\n", count + 1, files[count]);
+        count++;
+    }
+    fclose(f);
+
+    if (count == 0) {
+        printf("No entries found.\n");
+        while (1);
+    }
+
+    printf("\nSelect number: ");
+    int choice;
+    scanf("%d", &choice);
+    if (choice < 1 || choice > count) {
+        printf("Invalid selection.\n");
+        while (1);
+    }
+
+    char url[512], savepath[128];
+    snprintf(url, sizeof(url), "%s%s", FILE_BASE, files[choice - 1]);
+    snprintf(savepath, sizeof(savepath), "/downloads/%s", files[choice - 1]);
+
+    printf("\nDownloading %s...\n", files[choice - 1]);
+    if (httpDownload(url, savepath))
+        printf("Saved to %s\n", savepath);
+    else
+        printf("Download failed.\n");
+
+    pauseForA();
+    return 0;
+}
+#include <nds.h>
+#include <fat.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include "dswifi9.h"
+
+#define BUFFER_SIZE 2048
+
+// Replace this with your GitHub raw file URL
+#define INDEX_URL "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/index.txt"
+#define FILE_BASE "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/files/"
+
+void pauseForA() {
+    printf("\nPress A to continue...\n");
+    while (!(keysDown() & KEY_A)) scanKeys();
+}
+
+bool httpDownload(const char *url, const char *savePath) {
+    char host[128], path[256];
+    int port = 80;
+
+    if (sscanf(url, "http://%127[^/]%255[^\n]", host, path) != 2 &&
+        sscanf(url, "https://%127[^/]%255[^\n]", host, path) != 2) {
+        printf("Bad URL format!\n");
+        return false;
+    }
+
+    struct hostent *he = gethostbyname(host);
+    if (!he) {
+        printf("DNS fail: %s\n", host);
+        return false;
+    }
+
+    struct sockaddr_in server;
+    server.sin_family = AF_INET;
+    server.sin_port = htons(port);
+    server.sin_addr = *(struct in_addr *)he->h_addr;
+
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
+        printf("Connect failed!\n");
+        closesocket(sock);
+        return false;
+    }
+
+    char request[512];
+    snprintf(request, sizeof(request),
+             "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n", path, host);
+    send(sock, request, strlen(request), 0);
+
+    FILE *out = fopen(savePath, "wb");
+    if (!out) {
+        printf("Cannot open %s\n", savePath);
+        closesocket(sock);
+        return false;
+    }
+
+    char buf[BUFFER_SIZE];
+    bool headerDone = false;
+    int n;
+    while ((n = recv(sock, buf, sizeof(buf), 0)) > 0) {
+        char *data = buf;
+        int len = n;
+        if (!headerDone) {
+            char *headerEnd = strstr(buf, "\r\n\r\n");
+            if (headerEnd) {
+                int headerLen = headerEnd + 4 - buf;
+                data += headerLen;
+                len -= headerLen;
+                headerDone = true;
+            } else {
+                continue;
+            }
+        }
+        fwrite(data, 1, len, out);
+    }
+
+    fclose(out);
+    closesocket(sock);
+    return true;
+}
+
+int main(void) {
+    consoleDemoInit();
+    printf("=== DS GitHub Shop ===\n\n");
+
+    if (!fatInitDefault()) {
+        printf("SD card not found!\n");
+        while (1);
+    }
+
+    if (!Wifi_InitDefault(false)) {
+        printf("WiFi init failed!\n");
+        while (1);
+    }
+
+    Wifi_AutoConnect();
+    printf("Connecting...\n");
+    int t = 0;
+    while (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED && t < 100) {
+        swiWaitForVBlank();
+        t++;
+    }
+    if (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED) {
+        printf("WiFi connect failed.\n");
+        while (1);
+    }
+    printf("Connected!\n\n");
+
+    // Fetch index.txt from GitHub
+    printf("Fetching list...\n");
+    httpDownload(INDEX_URL, "index.txt");
+
+    FILE *f = fopen("index.txt", "r");
+    if (!f) {
+        printf("Failed to open index.txt\n");
+        while (1);
+    }
+
+    char files[50][64];
+    int count = 0;
+    while (fgets(files[count], sizeof(files[count]), f) && count < 50) {
+        files[count][strcspn(files[count], "\r\n")] = 0;
+        printf("%d. %s\n", count + 1, files[count]);
+        count++;
+    }
+    fclose(f);
+
+    if (count == 0) {
+        printf("No entries found.\n");
+        while (1);
+    }
+
+    printf("\nSelect number: ");
+    int choice;
+    scanf("%d", &choice);
+    if (choice < 1 || choice > count) {
+        printf("Invalid selection.\n");
+        while (1);
+    }
+
+    char url[512], savepath[128];
+    snprintf(url, sizeof(url), "%s%s", FILE_BASE, files[choice - 1]);
+    snprintf(savepath, sizeof(savepath), "/downloads/%s", files[choice - 1]);
+
+    printf("\nDownloading %s...\n", files[choice - 1]);
+    if (httpDownload(url, savepath))
+        printf("Saved to %s\n", savepath);
+    else
+        printf("Download failed.\n");
+
+    pauseForA();
+    return 0;
+}
+#include <nds.h>
+#include <fat.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include "dswifi9.h"
+
+#define BUFFER_SIZE 2048
+
+// Replace this with your GitHub raw file URL
+#define INDEX_URL "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/index.txt"
+#define FILE_BASE "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/files/"
+
+void pauseForA() {
+    printf("\nPress A to continue...\n");
+    while (!(keysDown() & KEY_A)) scanKeys();
+}
+
+bool httpDownload(const char *url, const char *savePath) {
+    char host[128], path[256];
+    int port = 80;
+
+    if (sscanf(url, "http://%127[^/]%255[^\n]", host, path) != 2 &&
+        sscanf(url, "https://%127[^/]%255[^\n]", host, path) != 2) {
+        printf("Bad URL format!\n");
+        return false;
+    }
+
+    struct hostent *he = gethostbyname(host);
+    if (!he) {
+        printf("DNS fail: %s\n", host);
+        return false;
+    }
+
+    struct sockaddr_in server;
+    server.sin_family = AF_INET;
+    server.sin_port = htons(port);
+    server.sin_addr = *(struct in_addr *)he->h_addr;
+
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
+        printf("Connect failed!\n");
+        closesocket(sock);
+        return false;
+    }
+
+    char request[512];
+    snprintf(request, sizeof(request),
+             "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n", path, host);
+    send(sock, request, strlen(request), 0);
+
+    FILE *out = fopen(savePath, "wb");
+    if (!out) {
+        printf("Cannot open %s\n", savePath);
+        closesocket(sock);
+        return false;
+    }
+
+    char buf[BUFFER_SIZE];
+    bool headerDone = false;
+    int n;
+    while ((n = recv(sock, buf, sizeof(buf), 0)) > 0) {
+        char *data = buf;
+        int len = n;
+        if (!headerDone) {
+            char *headerEnd = strstr(buf, "\r\n\r\n");
+            if (headerEnd) {
+                int headerLen = headerEnd + 4 - buf;
+                data += headerLen;
+                len -= headerLen;
+                headerDone = true;
+            } else {
+                continue;
+            }
+        }
+        fwrite(data, 1, len, out);
+    }
+
+    fclose(out);
+    closesocket(sock);
+    return true;
+}
+
+int main(void) {
+    consoleDemoInit();
+    printf("=== DS GitHub Shop ===\n\n");
+
+    if (!fatInitDefault()) {
+        printf("SD card not found!\n");
+        while (1);
+    }
+
+    if (!Wifi_InitDefault(false)) {
+        printf("WiFi init failed!\n");
+        while (1);
+    }
+
+    Wifi_AutoConnect();
+    printf("Connecting...\n");
+    int t = 0;
+    while (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED && t < 100) {
+        swiWaitForVBlank();
+        t++;
+    }
+    if (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED) {
+        printf("WiFi connect failed.\n");
+        while (1);
+    }
+    printf("Connected!\n\n");
+
+    // Fetch index.txt from GitHub
+    printf("Fetching list...\n");
+    httpDownload(INDEX_URL, "index.txt");
+
+    FILE *f = fopen("index.txt", "r");
+    if (!f) {
+        printf("Failed to open index.txt\n");
+        while (1);
+    }
+
+    char files[50][64];
+    int count = 0;
+    while (fgets(files[count], sizeof(files[count]), f) && count < 50) {
+        files[count][strcspn(files[count], "\r\n")] = 0;
+        printf("%d. %s\n", count + 1, files[count]);
+        count++;
+    }
+    fclose(f);
+
+    if (count == 0) {
+        printf("No entries found.\n");
+        while (1);
+    }
+
+    printf("\nSelect number: ");
+    int choice;
+    scanf("%d", &choice);
+    if (choice < 1 || choice > count) {
+        printf("Invalid selection.\n");
+        while (1);
+    }
+
+    char url[512], savepath[128];
+    snprintf(url, sizeof(url), "%s%s", FILE_BASE, files[choice - 1]);
+    snprintf(savepath, sizeof(savepath), "/downloads/%s", files[choice - 1]);
+
+    printf("\nDownloading %s...\n", files[choice - 1]);
+    if (httpDownload(url, savepath))
+        printf("Saved to %s\n", savepath);
+    else
+        printf("Download failed.\n");
+
+    pauseForA();
+    return 0;
+}
+#include <nds.h>
+#include <fat.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include "dswifi9.h"
+
+#define BUFFER_SIZE 2048
+
+// Replace this with your GitHub raw file URL
+#define INDEX_URL "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/index.txt"
+#define FILE_BASE "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/files/"
+
+void pauseForA() {
+    printf("\nPress A to continue...\n");
+    while (!(keysDown() & KEY_A)) scanKeys();
+}
+
+bool httpDownload(const char *url, const char *savePath) {
+    char host[128], path[256];
+    int port = 80;
+
+    if (sscanf(url, "http://%127[^/]%255[^\n]", host, path) != 2 &&
+        sscanf(url, "https://%127[^/]%255[^\n]", host, path) != 2) {
+        printf("Bad URL format!\n");
+        return false;
+    }
+
+    struct hostent *he = gethostbyname(host);
+    if (!he) {
+        printf("DNS fail: %s\n", host);
+        return false;
+    }
+
+    struct sockaddr_in server;
+    server.sin_family = AF_INET;
+    server.sin_port = htons(port);
+    server.sin_addr = *(struct in_addr *)he->h_addr;
+
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
+        printf("Connect failed!\n");
+        closesocket(sock);
+        return false;
+    }
+
+    char request[512];
+    snprintf(request, sizeof(request),
+             "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n", path, host);
+    send(sock, request, strlen(request), 0);
+
+    FILE *out = fopen(savePath, "wb");
+    if (!out) {
+        printf("Cannot open %s\n", savePath);
+        closesocket(sock);
+        return false;
+    }
+
+    char buf[BUFFER_SIZE];
+    bool headerDone = false;
+    int n;
+    while ((n = recv(sock, buf, sizeof(buf), 0)) > 0) {
+        char *data = buf;
+        int len = n;
+        if (!headerDone) {
+            char *headerEnd = strstr(buf, "\r\n\r\n");
+            if (headerEnd) {
+                int headerLen = headerEnd + 4 - buf;
+                data += headerLen;
+                len -= headerLen;
+                headerDone = true;
+            } else {
+                continue;
+            }
+        }
+        fwrite(data, 1, len, out);
+    }
+
+    fclose(out);
+    closesocket(sock);
+    return true;
+}
+
+int main(void) {
+    consoleDemoInit();
+    printf("=== DS GitHub Shop ===\n\n");
+
+    if (!fatInitDefault()) {
+        printf("SD card not found!\n");
+        while (1);
+    }
+
+    if (!Wifi_InitDefault(false)) {
+        printf("WiFi init failed!\n");
+        while (1);
+    }
+
+    Wifi_AutoConnect();
+    printf("Connecting...\n");
+    int t = 0;
+    while (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED && t < 100) {
+        swiWaitForVBlank();
+        t++;
+    }
+    if (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED) {
+        printf("WiFi connect failed.\n");
+        while (1);
+    }
+    printf("Connected!\n\n");
+
+    // Fetch index.txt from GitHub
+    printf("Fetching list...\n");
+    httpDownload(INDEX_URL, "index.txt");
+
+    FILE *f = fopen("index.txt", "r");
+    if (!f) {
+        printf("Failed to open index.txt\n");
+        while (1);
+    }
+
+    char files[50][64];
+    int count = 0;
+    while (fgets(files[count], sizeof(files[count]), f) && count < 50) {
+        files[count][strcspn(files[count], "\r\n")] = 0;
+        printf("%d. %s\n", count + 1, files[count]);
+        count++;
+    }
+    fclose(f);
+
+    if (count == 0) {
+        printf("No entries found.\n");
+        while (1);
+    }
+
+    printf("\nSelect number: ");
+    int choice;
+    scanf("%d", &choice);
+    if (choice < 1 || choice > count) {
+        printf("Invalid selection.\n");
+        while (1);
+    }
+
+    char url[512], savepath[128];
+    snprintf(url, sizeof(url), "%s%s", FILE_BASE, files[choice - 1]);
+    snprintf(savepath, sizeof(savepath), "/downloads/%s", files[choice - 1]);
+
+    printf("\nDownloading %s...\n", files[choice - 1]);
+    if (httpDownload(url, savepath))
+        printf("Saved to %s\n", savepath);
+    else
+        printf("Download failed.\n");
+
+    pauseForA();
+    return 0;
+}
+#include <nds.h>
+#include <fat.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include "dswifi9.h"
+
+#define BUFFER_SIZE 2048
+
+// Replace this with your GitHub raw file URL
+#define INDEX_URL "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/index.txt"
+#define FILE_BASE "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/files/"
+
+void pauseForA() {
+    printf("\nPress A to continue...\n");
+    while (!(keysDown() & KEY_A)) scanKeys();
+}
+
+bool httpDownload(const char *url, const char *savePath) {
+    char host[128], path[256];
+    int port = 80;
+
+    if (sscanf(url, "http://%127[^/]%255[^\n]", host, path) != 2 &&
+        sscanf(url, "https://%127[^/]%255[^\n]", host, path) != 2) {
+        printf("Bad URL format!\n");
+        return false;
+    }
+
+    struct hostent *he = gethostbyname(host);
+    if (!he) {
+        printf("DNS fail: %s\n", host);
+        return false;
+    }
+
+    struct sockaddr_in server;
+    server.sin_family = AF_INET;
+    server.sin_port = htons(port);
+    server.sin_addr = *(struct in_addr *)he->h_addr;
+
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
+        printf("Connect failed!\n");
+        closesocket(sock);
+        return false;
+    }
+
+    char request[512];
+    snprintf(request, sizeof(request),
+             "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n", path, host);
+    send(sock, request, strlen(request), 0);
+
+    FILE *out = fopen(savePath, "wb");
+    if (!out) {
+        printf("Cannot open %s\n", savePath);
+        closesocket(sock);
+        return false;
+    }
+
+    char buf[BUFFER_SIZE];
+    bool headerDone = false;
+    int n;
+    while ((n = recv(sock, buf, sizeof(buf), 0)) > 0) {
+        char *data = buf;
+        int len = n;
+        if (!headerDone) {
+            char *headerEnd = strstr(buf, "\r\n\r\n");
+            if (headerEnd) {
+                int headerLen = headerEnd + 4 - buf;
+                data += headerLen;
+                len -= headerLen;
+                headerDone = true;
+            } else {
+                continue;
+            }
+        }
+        fwrite(data, 1, len, out);
+    }
+
+    fclose(out);
+    closesocket(sock);
+    return true;
+}
+
+int main(void) {
+    consoleDemoInit();
+    printf("=== DS GitHub Shop ===\n\n");
+
+    if (!fatInitDefault()) {
+        printf("SD card not found!\n");
+        while (1);
+    }
+
+    if (!Wifi_InitDefault(false)) {
+        printf("WiFi init failed!\n");
+        while (1);
+    }
+
+    Wifi_AutoConnect();
+    printf("Connecting...\n");
+    int t = 0;
+    while (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED && t < 100) {
+        swiWaitForVBlank();
+        t++;
+    }
+    if (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED) {
+        printf("WiFi connect failed.\n");
+        while (1);
+    }
+    printf("Connected!\n\n");
+
+    // Fetch index.txt from GitHub
+    printf("Fetching list...\n");
+    httpDownload(INDEX_URL, "index.txt");
+
+    FILE *f = fopen("index.txt", "r");
+    if (!f) {
+        printf("Failed to open index.txt\n");
+        while (1);
+    }
+
+    char files[50][64];
+    int count = 0;
+    while (fgets(files[count], sizeof(files[count]), f) && count < 50) {
+        files[count][strcspn(files[count], "\r\n")] = 0;
+        printf("%d. %s\n", count + 1, files[count]);
+        count++;
+    }
+    fclose(f);
+
+    if (count == 0) {
+        printf("No entries found.\n");
+        while (1);
+    }
+
+    printf("\nSelect number: ");
+    int choice;
+    scanf("%d", &choice);
+    if (choice < 1 || choice > count) {
+        printf("Invalid selection.\n");
+        while (1);
+    }
+
+    char url[512], savepath[128];
+    snprintf(url, sizeof(url), "%s%s", FILE_BASE, files[choice - 1]);
+    snprintf(savepath, sizeof(savepath), "/downloads/%s", files[choice - 1]);
+
+    printf("\nDownloading %s...\n", files[choice - 1]);
+    if (httpDownload(url, savepath))
+        printf("Saved to %s\n", savepath);
+    else
+        printf("Download failed.\n");
+
+    pauseForA();
+    return 0;
+}
+#include <nds.h>
+#include <fat.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include "dswifi9.h"
+
+#define BUFFER_SIZE 2048
+
+// Replace this with your GitHub raw file URL
+#define INDEX_URL "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/index.txt"
+#define FILE_BASE "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/files/"
+
+void pauseForA() {
+    printf("\nPress A to continue...\n");
+    while (!(keysDown() & KEY_A)) scanKeys();
+}
+
+bool httpDownload(const char *url, const char *savePath) {
+    char host[128], path[256];
+    int port = 80;
+
+    if (sscanf(url, "http://%127[^/]%255[^\n]", host, path) != 2 &&
+        sscanf(url, "https://%127[^/]%255[^\n]", host, path) != 2) {
+        printf("Bad URL format!\n");
+        return false;
+    }
+
+    struct hostent *he = gethostbyname(host);
+    if (!he) {
+        printf("DNS fail: %s\n", host);
+        return false;
+    }
+
+    struct sockaddr_in server;
+    server.sin_family = AF_INET;
+    server.sin_port = htons(port);
+    server.sin_addr = *(struct in_addr *)he->h_addr;
+
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
+        printf("Connect failed!\n");
+        closesocket(sock);
+        return false;
+    }
+
+    char request[512];
+    snprintf(request, sizeof(request),
+             "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n", path, host);
+    send(sock, request, strlen(request), 0);
+
+    FILE *out = fopen(savePath, "wb");
+    if (!out) {
+        printf("Cannot open %s\n", savePath);
+        closesocket(sock);
+        return false;
+    }
+
+    char buf[BUFFER_SIZE];
+    bool headerDone = false;
+    int n;
+    while ((n = recv(sock, buf, sizeof(buf), 0)) > 0) {
+        char *data = buf;
+        int len = n;
+        if (!headerDone) {
+            char *headerEnd = strstr(buf, "\r\n\r\n");
+            if (headerEnd) {
+                int headerLen = headerEnd + 4 - buf;
+                data += headerLen;
+                len -= headerLen;
+                headerDone = true;
+            } else {
+                continue;
+            }
+        }
+        fwrite(data, 1, len, out);
+    }
+
+    fclose(out);
+    closesocket(sock);
+    return true;
+}
+
+int main(void) {
+    consoleDemoInit();
+    printf("=== DS GitHub Shop ===\n\n");
+
+    if (!fatInitDefault()) {
+        printf("SD card not found!\n");
+        while (1);
+    }
+
+    if (!Wifi_InitDefault(false)) {
+        printf("WiFi init failed!\n");
+        while (1);
+    }
+
+    Wifi_AutoConnect();
+    printf("Connecting...\n");
+    int t = 0;
+    while (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED && t < 100) {
+        swiWaitForVBlank();
+        t++;
+    }
+    if (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED) {
+        printf("WiFi connect failed.\n");
+        while (1);
+    }
+    printf("Connected!\n\n");
+
+    // Fetch index.txt from GitHub
+    printf("Fetching list...\n");
+    httpDownload(INDEX_URL, "index.txt");
+
+    FILE *f = fopen("index.txt", "r");
+    if (!f) {
+        printf("Failed to open index.txt\n");
+        while (1);
+    }
+
+    char files[50][64];
+    int count = 0;
+    while (fgets(files[count], sizeof(files[count]), f) && count < 50) {
+        files[count][strcspn(files[count], "\r\n")] = 0;
+        printf("%d. %s\n", count + 1, files[count]);
+        count++;
+    }
+    fclose(f);
+
+    if (count == 0) {
+        printf("No entries found.\n");
+        while (1);
+    }
+
+    printf("\nSelect number: ");
+    int choice;
+    scanf("%d", &choice);
+    if (choice < 1 || choice > count) {
+        printf("Invalid selection.\n");
+        while (1);
+    }
+
+    char url[512], savepath[128];
+    snprintf(url, sizeof(url), "%s%s", FILE_BASE, files[choice - 1]);
+    snprintf(savepath, sizeof(savepath), "/downloads/%s", files[choice - 1]);
+
+    printf("\nDownloading %s...\n", files[choice - 1]);
+    if (httpDownload(url, savepath))
+        printf("Saved to %s\n", savepath);
+    else
+        printf("Download failed.\n");
+
+    pauseForA();
+    return 0;
+}
+#include <nds.h>
+#include <fat.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include "dswifi9.h"
+
+#define BUFFER_SIZE 2048
+
+// Replace this with your GitHub raw file URL
+#define INDEX_URL "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/index.txt"
+#define FILE_BASE "https://raw.githubusercontent.com/YourUser/DSShopRepo/main/files/"
+
+void pauseForA() {
+    printf("\nPress A to continue...\n");
+    while (!(keysDown() & KEY_A)) scanKeys();
+}
+
+bool httpDownload(const char *url, const char *savePath) {
+    char host[128], path[256];
+    int port = 80;
+
+    if (sscanf(url, "http://%127[^/]%255[^\n]", host, path) != 2 &&
+        sscanf(url, "https://%127[^/]%255[^\n]", host, path) != 2) {
+        printf("Bad URL format!\n");
+        return false;
+    }
+
+    struct hostent *he = gethostbyname(host);
+    if (!he) {
+        printf("DNS fail: %s\n", host);
+        return false;
+    }
+
+    struct sockaddr_in server;
+    server.sin_family = AF_INET;
+    server.sin_port = htons(port);
+    server.sin_addr = *(struct in_addr *)he->h_addr;
+
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
+        printf("Connect failed!\n");
+        closesocket(sock);
+        return false;
+    }
+
+    char request[512];
+    snprintf(request, sizeof(request),
+             "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n", path, host);
+    send(sock, request, strlen(request), 0);
+
+    FILE *out = fopen(savePath, "wb");
+    if (!out) {
+        printf("Cannot open %s\n", savePath);
+        closesocket(sock);
+        return false;
+    }
+
+    char buf[BUFFER_SIZE];
+    bool headerDone = false;
+    int n;
+    while ((n = recv(sock, buf, sizeof(buf), 0)) > 0) {
+        char *data = buf;
+        int len = n;
+        if (!headerDone) {
+            char *headerEnd = strstr(buf, "\r\n\r\n");
+            if (headerEnd) {
+                int headerLen = headerEnd + 4 - buf;
+                data += headerLen;
+                len -= headerLen;
+                headerDone = true;
+            } else {
+                continue;
+            }
+        }
+        fwrite(data, 1, len, out);
+    }
+
+    fclose(out);
+    closesocket(sock);
+    return true;
+}
+
+int main(void) {
+    consoleDemoInit();
+    printf("=== DS GitHub Shop ===\n\n");
+
+    if (!fatInitDefault()) {
+        printf("SD card not found!\n");
+        while (1);
+    }
+
+    if (!Wifi_InitDefault(false)) {
+        printf("WiFi init failed!\n");
+        while (1);
+    }
+
+    Wifi_AutoConnect();
+    printf("Connecting...\n");
+    int t = 0;
+    while (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED && t < 100) {
+        swiWaitForVBlank();
+        t++;
+    }
+    if (Wifi_AssocStatus() != ASSOCSTATUS_ASSOCIATED) {
+        printf("WiFi connect failed.\n");
+        while (1);
+    }
+    printf("Connected!\n\n");
+
+    // Fetch index.txt from GitHub
+    printf("Fetching list...\n");
+    httpDownload(INDEX_URL, "index.txt");
+
+    FILE *f = fopen("index.txt", "r");
+    if (!f) {
+        printf("Failed to open index.txt\n");
+        while (1);
+    }
+
+    char files[50][64];
+    int count = 0;
+    while (fgets(files[count], sizeof(files[count]), f) && count < 50) {
+        files[count][strcspn(files[count], "\r\n")] = 0;
+        printf("%d. %s\n", count + 1, files[count]);
+        count++;
+    }
+    fclose(f);
+
+    if (count == 0) {
+        printf("No entries found.\n");
+        while (1);
+    }
+
+    printf("\nSelect number: ");
+    int choice;
+    scanf("%d", &choice);
+    if (choice < 1 || choice > count) {
+        printf("Invalid selection.\n");
+        while (1);
+    }
+
+    char url[512], savepath[128];
+    snprintf(url, sizeof(url), "%s%s", FILE_BASE, files[choice - 1]);
+    snprintf(savepath, sizeof(savepath), "/downloads/%s", files[choice - 1]);
+
+    printf("\nDownloading %s...\n", files[choice - 1]);
+    if (httpDownload(url, savepath))
+        printf("Saved to %s\n", savepath);
+    else
+        printf("Download failed.\n");
+
+    pauseForA();
+    return 0;
+}
