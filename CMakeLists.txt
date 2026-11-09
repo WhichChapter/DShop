@@ -11,7 +11,7 @@ include("${VITASDK}/share/vita.cmake")
 
 set(VITA_APP_NAME "DShop")
 set(VITA_TITLEID "DSHP00001")
-set(VITA_VERSION "01.00")
+set(VITA_VERSION "01.01")
 
 add_executable(${PROJECT_NAME}
     src/main.c
@@ -23,10 +23,9 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     -Wextra
 )
 
-# vita2d's system dependencies: PGF font exports are provided by ScePgf,
-# while shared framebuffer access is exposed through AppMgr.
 target_link_libraries(${PROJECT_NAME}
     vita2d
+    curl
     SceCtrl_stub
     SceDisplay_stub
     SceSysmodule_stub
@@ -34,6 +33,8 @@ target_link_libraries(${PROJECT_NAME}
     SceAppMgr_stub
     SceCommonDialog_stub
     ScePgf_stub
+    SceNet_stub
+    SceNetCtl_stub
     m
 )
 
