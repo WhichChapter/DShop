@@ -28,7 +28,7 @@ int main(void)
         return 1;
     }
 
-    vita2d_pgf *font = vita2d_pgf_load_default();
+    vita2d_pgf *font = vita2d_load_default_pgf();
     if (!font) {
         vita2d_fini();
         sceKernelExitProcess(1);
@@ -96,7 +96,7 @@ int main(void)
         sceDisplayWaitVblankStart();
     }
 
-    vita2d_pgf_free(font);
+    vita2d_free_pgf(font);
     vita2d_fini();
     sceKernelExitProcess(0);
     return 0;
