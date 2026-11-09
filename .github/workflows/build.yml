@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Vita libraries
-        run: vdpm install libvita2d curl openssl zstd
+        run: vdpm install libvita2d curl zstd
 
       - name: Configure
         run: cmake -S . -B build
