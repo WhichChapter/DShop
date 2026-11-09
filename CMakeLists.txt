@@ -7,7 +7,7 @@ endif()
 
 project(DShop C)
 
-include("${VITASDK}/share/vita.cmake" REQUIRED)
+include("${VITASDK}/share/vita.cmake")
 
 set(VITA_APP_NAME "DShop")
 set(VITA_TITLEID "DSHP00001")
