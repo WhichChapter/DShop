@@ -23,11 +23,16 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     -Wextra
 )
 
+# vita2d is a static library, so its Vita system and math dependencies
+# must be linked explicitly by the application.
 target_link_libraries(${PROJECT_NAME}
     vita2d
     SceCtrl_stub
     SceDisplay_stub
     SceSysmodule_stub
+    SceGxm_stub
+    SceFont_stub
+    m
 )
 
 vita_create_self(eboot.bin ${PROJECT_NAME})
