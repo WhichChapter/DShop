@@ -23,14 +23,17 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     -Wextra
 )
 
-# vita2d is a static library, so its Vita system and math dependencies
-# must be linked explicitly by the application.
+# vita2d's system dependencies: PGF font exports are provided by ScePgf,
+# while shared framebuffer access is exposed through AppMgr.
 target_link_libraries(${PROJECT_NAME}
     vita2d
     SceCtrl_stub
     SceDisplay_stub
     SceSysmodule_stub
     SceGxm_stub
+    SceAppMgr_stub
+    SceCommonDialog_stub
+    ScePgf_stub
     m
 )
 
