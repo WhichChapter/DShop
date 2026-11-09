@@ -1,0 +1,37 @@
+name: Build DShop VPK
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: vitasdk/vitasdk:2026.08
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Vita libraries
+        run: vdpm vita2d curl openssl zstd
+
+      - name: Configure
+        run: cmake -S . -B build
+
+      - name: Compile VPK
+        run: cmake --build build --parallel 2
+
+      - name: Upload VPK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DShop-VPK
+          path: build/DShop.vpk
+          if-no-files-found: error
+          retention-days: 14
