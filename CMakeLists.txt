@@ -26,6 +26,11 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 target_link_libraries(${PROJECT_NAME}
     vita2d
     curl
+    ssl
+    crypto
+    pthread
+    z
+    zstd
     SceCtrl_stub
     SceDisplay_stub
     SceSysmodule_stub
