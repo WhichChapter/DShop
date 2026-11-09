@@ -31,7 +31,6 @@ target_link_libraries(${PROJECT_NAME}
     SceDisplay_stub
     SceSysmodule_stub
     SceGxm_stub
-    SceFont_stub
     m
 )
 
